@@ -3,15 +3,15 @@ const path = require('path');
 
 const CONFIG_FILE = path.join(process.cwd(), 'config.json');
 
-const DEFAULT_CONFIG = {  
-  outputFolder: './output', 
-  //TODO add additional keys
+const DEFAULT_CONFIG = {
+  outputFolder: './output',   
 };
 
 /**
- * Ensures the config file exists, creates it with defaults if not, 
- * reads it, and returns the parsed object.
- * @returns {Promise<object>} The application configuration object.
+ * Verifica se o arquivo config.json existe. 
+ * Em caso negativo, o cria com as configurações padrão. 
+ * Em caso positibo, o lê e retorna o objeto construído.
+ * @returns {Promise<object>} O objeto de configuração da aplicação.
  */
 async function loadConfig() {
   try {    
