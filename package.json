@@ -9,11 +9,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "lore": "npm start get-lore",
-    "images": "npm start get-img"
+    "lore": "node index.js get-lore",
+    "images": "node index.js get-img"
   },
   "dependencies": {
     "axios": "^1.13.2",
-    "commander": "^14.0.2"
+    "commander": "^14.0.2",
+    "p-limit": "^7.2.0"
   }
 }
