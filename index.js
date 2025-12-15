@@ -1,7 +1,7 @@
 const { program } = require('commander');
 const path = require('path');
 const { loadConfig } = require('./src/config'); 
-const { processLore } = require('./src/process-lore');
+const { getLoreData } = require('./src/lore-extractor');
 const { downloadImages } = require('./src/download-img');
 
 program
@@ -32,7 +32,7 @@ program
   .action((options) => {    
     const pathSegments = options.source.split(path.sep);
     const outputKey = pathSegments[pathSegments.length - 1];
-    runCommand(processLore, options.source, outputKey, options); 
+    runCommand(getLoreData, options.source, 'lore', options);
   });
 
 // Registra comando get-img no commander
