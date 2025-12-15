@@ -94,6 +94,8 @@ function transformContentToMarkdown(content) {
         .replace(/\[\/h1\]/g, '')
         .replace(/\[h2\]/g, '## ')
         .replace(/\[\/h2\]/g, '')
+        .replace(/\[h3\]/g, '### ')
+        .replace(/\[\/h3\]/g, '')
         .replace(/\[h4\]/g, '#### ')
         .replace(/\[\/h4\]/g, '')
         .replace(/\[b\]/g, '**')
@@ -101,7 +103,9 @@ function transformContentToMarkdown(content) {
         .replace(/\[ul\]/g, '')
         .replace(/\[\/ul\]/g, '')
         .replace(/\[li\]/g, '* ')
-        .replace(/\[\/li\]/g, '');
+        .replace(/\[\/li\]/g, '')
+        .replace(/\[br\]/g, '<br>')
+        .replace(/\[hr\]/g, '\n---\n');
 
     // D. 4. Limpa quebras de linha/retorno de carro desnecessárias
     markdown = markdown.replace(/\r\n/g, '\n'); 
