@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const pLimit = require('p-limit').default; 
 // Assumindo que este módulo existe e exporta a função de transformação
-const { transformContentToMarkdown } = require('./utils/transform-content');
+const { transformContentToMarkdown, parseMetadataToFrontmatter } = require('./utils/transform-content');
 
 // --- CONFIGURAÇÃO ---
 const MAX_CONCURRENT_READS = 20; // Limite de concorrência para I/O de disco
@@ -68,10 +68,11 @@ async function processLoreArticle(data, entityClass, loreBaseOutputFolder) {
 
     // 3. --- Transformação do Conteúdo ---
     const markdownContent = transformContentToMarkdown(content);
-
+    const articleMetadata = {title: title, slug:slug};
+    const frontmatter = parseMetadataToFrontmatter(articleMetadata);
     // 4. --- Montagem do Arquivo ---
-    const finalContent = `${imageReference}# ${title}\n\n${markdownContent}`;
-
+    const articleBody = `${imageReference}# ${title}\n\n${markdownContent}`;
+    const finalContent = frontmatter+articleBody;
     // 5. --- I/O de Arquivo ---
     try {
         // Cria a pasta {loreBaseOutputFolder}/{entityClass}

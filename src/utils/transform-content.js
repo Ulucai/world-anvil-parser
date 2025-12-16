@@ -98,6 +98,10 @@ function transformContentToMarkdown(content) {
         .replace(/\[\/h3\]/g, '')
         .replace(/\[h4\]/g, '#### ')
         .replace(/\[\/h4\]/g, '')
+        .replace(/\[h5\]/g, '##### ')
+        .replace(/\[\/h5\]/g, '')
+        .replace(/\[h6\]/g, '###### ')
+        .replace(/\[\/h6\]/g, '')
         .replace(/\[b\]/g, '**')
         .replace(/\[\/b\]/g, '**')
         .replace(/\[ul\]/g, '')
@@ -113,8 +117,47 @@ function transformContentToMarkdown(content) {
     return markdown;
 }
 
+/**
+ * Converte um objeto de metadados em uma string YAML Frontmatter.
+ * * O Frontmatter deve ter o seguinte formato:
+ * ---
+ * title: "My Title"
+ * tags: "tag1, tag2, tag3"
+ * ---
+ * * @param {object} metadata O objeto contendo as chaves e valores de metadados.
+ * @returns {string} A string formatada como YAML Frontmatter.
+ */
+function parseMetadataToFrontmatter(metadata) {
+    if (!metadata || typeof metadata !== 'object') {
+        return '';
+    }
+
+    let frontmatter = '---\n';
+
+    // Itera sobre as chaves e valores do objeto de metadados
+    for (const key in metadata) {
+        if (Object.hasOwnProperty.call(metadata, key)) {
+            let value = metadata[key];
+            
+            // Tratamento: Garante que o valor seja uma string.
+            if (typeof value !== 'string') {
+                value = String(value);
+            }
+
+            // Tratamento: Coloca o valor entre aspas duplas, seguindo a convenção YAML para strings.
+            // Ex: title: "My Title"
+            frontmatter += `${key}: "${value}"\n`;
+        }
+    }
+
+    frontmatter += '---\n\n';
+
+    return frontmatter;
+}
+
 module.exports = {
     transformContentToMarkdown,
     replaceInternalLinks, // Exportar para testes se necessário
     parseBBCodeTable, // Exportar para testes se necessário
+    parseMetadataToFrontmatter,
 };
