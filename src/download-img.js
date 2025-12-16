@@ -4,6 +4,7 @@ const path = require('path');
 const axios = require('axios');
 const pLimit = require('p-limit').default; // Gerenciador de concorrência
 const crypto = require('crypto'); // gerador de números aleatórios
+const { loadRegistry, saveRegistry } = require('./utils/image-registry.js');
 
 
 const MAX_CONCURRENT_DOWNLOADS = 4; // Limite de requisições de rede simultâneas. Valor seguro contra rate limiting.
@@ -165,9 +166,13 @@ async function downloadImages(sourceDir, outputDir, nameProp) {
         await fs.mkdir(outputDir, { recursive: true });
 
         // 2. Cria um Set de arquivos existentes no diretório de saída (para verificação rápida)
-        const outputEntries = await fs.readdir(outputDir, { withFileTypes: true });
-        const existingFilenames = new Set(outputEntries.filter(d => d.isFile()).map(d => d.name));
-        console.log(`Arquivos existentes encontrados: ${existingFilenames.size}`);
+        // const outputEntries = await fs.readdir(outputDir, { withFileTypes: true });
+        // const existingFilenames = new Set(outputEntries.filter(d => d.isFile()).map(d => d.name));
+        // console.log(`Arquivos existentes encontrados: ${existingFilenames.size}`);
+
+        const registryOutputFolder = path.dirname(outputDir); // Se as imagens estiverem em output/img e o registro em output/
+        let imageRegistry = await loadRegistry(registryOutputFolder);
+        const initialRegistrySize = imageRegistry.length;
 
         // 3. Lê todos os arquivos JSON de forma PARALELA
         const sourceEntries = await fs.readdir(sourceDir, { withFileTypes: true });
@@ -191,23 +196,47 @@ async function downloadImages(sourceDir, outputDir, nameProp) {
 
             const imageUrl = data.url; 
             const outputFilename = data[nameProp]; 
+            const itemId = data.id; // Assume que o JSON tem um campo 'id' para identificação única
 
-            if (!imageUrl || !outputFilename) {
+            if (!imageUrl || !outputFilename || !itemId) {
                 // Se faltar URL ou nome, registra erro no log e pula
                 downloadResults.push({ url: imageUrl || 'N/A', filename: outputFilename || 'N/A', result: 'ERROR:MissingData' });
                 continue;
             }
 
             // --- VERIFICAÇÃO DE EXISTÊNCIA (SKIPPING) ---
-            if (existingFilenames.has(outputFilename)) {
-                downloadResults.push({ url: imageUrl, filename: outputFilename, result: 'SKIPPED' });
-                console.log(`  - PULO: Arquivo já existe: ${outputFilename}`);
+            // if (existingFilenames.has(outputFilename)) {
+            //     downloadResults.push({ url: imageUrl, filename: outputFilename, result: 'SKIPPED' });
+            //     console.log(`  - PULO: Arquivo já existe: ${outputFilename}`);
+            //     continue;
+            // }
+            let registryItem = imageRegistry.find(item => item.id === itemId);
+
+            if (!registryItem) {
+                // Se não existe, cria um novo registro
+                registryItem = {
+                    id: itemId,
+                    url: imageUrl,
+                    filename: outputFilename,
+                    entityClass: data.entityClass || 'N/A',
+                    title: data.title || 'N/A',
+                    pageUrl: data.pageUrl || 'N/A',
+                    extracted: false, // Novo item é sempre 'false'
+                };
+                imageRegistry.push(registryItem);
+            }            
+            
+            if (registryItem.extracted === true) {
+                downloadResults.push({ url: imageUrl, filename: outputFilename, result: 'SKIPPED (Registry)' });
+                // console.log(`  - PULO: Imagem já extraída no registro: ${outputFilename}`); // Opcional
                 continue;
             }
-
             // Adiciona a tarefa de download à lista de execução
-            downloadTasks.push({ url: imageUrl, filename: outputFilename });
+            downloadTasks.push({ url: imageUrl, filename: outputFilename, registryId: registryItem.id });
         }
+        
+        console.log(`Imagens rastreadas: ${imageRegistry.length - initialRegistrySize} novas, ${imageRegistry.length} total.`);        
+        await saveRegistry(registryOutputFolder, imageRegistry);
         
         console.log(`Total de tarefas de download necessárias: ${downloadTasks.length}`);
 
@@ -218,25 +247,30 @@ async function downloadImages(sourceDir, outputDir, nameProp) {
             const downloadLimit = pLimit(MAX_CONCURRENT_DOWNLOADS); // Limite de requisições de rede
             
             const downloadPromises = downloadTasks.map(task => {
-                const outputFilePath = path.join(outputDir, task.filename);
-                
-                // Wrap a função de retentativa no limitador
+                const outputFilePath = path.join(outputDir, task.filename);            
+                    // Wrap a função de retentativa no limitador
                 return downloadLimit(async () => {
                     const result = await attemptDownloadWithRetries(task.url, outputFilePath, 3);
-                    downloadResults.push({ url: task.url, filename: task.filename, result });
-                    if (result === 'SUCCESS') {
+                    
+                    // Encontra o item original no registro para atualização
+                    const updatedItem = imageRegistry.find(item => item.id === task.registryId);
+
+                    if (result.startsWith('SUCCESS') && updatedItem) {
+                        updatedItem.extracted = true; // 🚨 ATUALIZA O REGISTRO NA MEMÓRIA
                         console.log(`  - SUCESSO: ${task.filename}`);
+                    } else if (result.startsWith('ERROR') && updatedItem) {
                     }
+                    
+                    downloadResults.push({ url: task.url, filename: task.filename, result });
                     return result;
                 });
-            });
-
-            // Espera todos os downloads terminarem
+            });            
             await Promise.all(downloadPromises);
-        }
+        }                
 
         console.log(`\nProcesso de download concluído. Total de registros: ${downloadResults.length}`);
-
+        
+        await saveRegistry(registryOutputFolder, imageRegistry);
 
         // --- FASE 3: GERAÇÃO DO LOG FINAL ---
         console.log(`--- FASE 3: Gerando Log de Resultados (${logFileName}) ---`);
