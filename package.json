@@ -10,7 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
     "lore": "node index.js get-lore",
-    "images": "node index.js get-img"
+    "images": "node index.js get-img",
+    "sync-images": "node index.js sync-img"
   },
   "dependencies": {
     "axios": "^1.13.2",
