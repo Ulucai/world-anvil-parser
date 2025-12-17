@@ -58,7 +58,7 @@ async function buildRegistryFromJsons(sourceDir, registryOutputFolder) {
 
     let newItemsAdded = 0;
 
-    for (const data of parsedJsonData) {
+    for (const data of parsedJsonData) {        
         if (!data) continue;
 
         const { id, title, entityClass, url, filename, pageUrl } = data;

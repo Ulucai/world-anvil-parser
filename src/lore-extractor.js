@@ -1,11 +1,9 @@
 const fs = require('fs/promises');
 const path = require('path');
-const pLimit = require('p-limit').default; 
-// Assumindo que este módulo existe e exporta a função de transformação
 const { transformContentToMarkdown, parseMetadataToFrontmatter } = require('./utils/transform-content');
+const { readAllJsons } = require('./utils/json-utils.js');
 
 // --- CONFIGURAÇÃO ---
-const MAX_CONCURRENT_READS = 20; // Limite de concorrência para I/O de disco
 const MAX_CONCURRENT_PROCESSING = 5; // Limite de concorrência para processamento e escrita
 const DEFAULT_FALLBACK_FOLDER = '_uncategorized'; 
 const COVER_URL_REGEX = /.*\/(.*?\.jpg)/; // Regex para extrair o nome do arquivo da URL
@@ -18,19 +16,6 @@ function generateUniqueLogName() {
     const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-` +
                       `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
     return `lore_extraction_log_${timestamp}.txt`;
-}
-
-/**
- * Lê e analisa um único arquivo JSON, retornando o fullContent.
- */
-async function readJsonFile(filePath, fileName) {
-    try {
-        const rawContent = await fs.readFile(filePath, 'utf8');
-        const data = JSON.parse(rawContent);
-        return { data: data, jsonFilename: fileName };
-    } catch (error) {
-        return { error: `ERROR: ${error.message}`, jsonFilename: fileName };
-    }
 }
 
 /**
@@ -111,22 +96,13 @@ async function getLoreData(sourceDir, loreBaseOutputFolder, options) {
         // --- FASE 1: LEITURA CONCORRENTE, VERIFICAÇÃO DE EXISTÊNCIA E FILTRAGEM ---
         console.log('\n--- FASE 1: Lendo JSONs, Verificando Entidades e Existência ---');
 
-        const entries = await fs.readdir(sourceDir, { withFileTypes: true });
-        const jsonFiles = entries.filter(d => d.isFile() && d.name.endsWith('.json'));
-
-        // Leitura concorrente (Otimização)
-        const readLimit = pLimit(MAX_CONCURRENT_READS);
-        const readPromises = jsonFiles.map(entry => {
-            const filePath = path.join(sourceDir, entry.name);
-            return readLimit(() => readJsonFile(filePath, entry.name));
-        });
-        const results = await Promise.all(readPromises);
-        console.log(`Arquivos JSON lidos e analisados: ${jsonFiles.length}`);
+        const results = await readAllJsons(sourceDir);
+        console.log(`Arquivos JSON lidos e analisados: ${results.length}`);
 
         // Filtragem e Geração de Tarefas
-        for (const result of results) {
+        for (const data of results) {
             
-            const { data, error, jsonFilename} = result;            
+            const { error, jsonFilename} = data;
             if (error || !data) {
                 logResults.push({ status: 'ERROR', entityClass: 'N/A', slug: 'N/A', jsonFilename});
                 continue;

@@ -45,9 +45,7 @@ program
   .command('get-lore')
   .description('Lê arquivos JSON e converte seu conteúdo em arquivos Markdown.')
   .option('-s, --source <path>', 'A pasta contendo os arquivos JSON.', false)
-  .action((options) => {    
-    const pathSegments = options.source.split(path.sep);
-    const outputKey = pathSegments[pathSegments.length - 1];
+  .action((options) => {        
     runCommand(getLoreData, options.source, 'lore', options);
   });
 
