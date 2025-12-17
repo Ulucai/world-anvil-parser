@@ -4,7 +4,9 @@ const path = require('path');
 const CONFIG_FILE = path.join(process.cwd(), 'config.json');
 
 const DEFAULT_CONFIG = {
-  outputFolder: './output',   
+  outputFolder: './output',
+  imageSourceFolder:"./source/images",
+  loreSourceFolder:"./source/Articles"
 };
 
 /**
