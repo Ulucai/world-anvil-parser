@@ -1,44 +1,9 @@
 const fs = require('fs/promises');
 const path = require('path');
 const { readAllJsons } = require('./json-utils')
+const { loadRegistry, saveRegistry } = require('./registry-utils')
 const REGISTRY_FILENAME = 'img-registry.json';
 
-
-/**
- * Carrega o registro de imagens existente. Se não existir, retorna um array vazio.
- * @param {string} outputFolder A pasta de saída onde o registro deve estar (ex: ./output).
- * @returns {Promise<Array<Object>>} A lista de metadados de imagens.
- */
-async function loadRegistry(outputFolder) {
-    const registryPath = path.join(outputFolder, REGISTRY_FILENAME);
-    try {
-        const data = await fs.readFile(registryPath, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.log(`Image registry não encontrado em ${registryPath}. Criando um novo.`);
-            return []; // Retorna vazio se o arquivo não existir
-        }
-        console.error("Error loading image registry:", error.message);
-        throw error;
-    }
-}
-
-/**
- * Salva a lista de metadados de imagens no arquivo de registro.
- * @param {string} outputFolder A pasta de saída.
- * @param {Array<Object>} registry A lista atualizada de metadados.
- */
-async function saveRegistry(outputFolder, registry) {
-    const registryPath = path.join(outputFolder, REGISTRY_FILENAME);
-    try {
-        await fs.writeFile(registryPath, JSON.stringify(registry, null, 2), 'utf8');
-        console.log(`Image registry saved to: ${registryPath}`);
-    } catch (error) {
-        console.error("Error saving image registry:", error.message);
-        throw error;
-    }
-}
 
 /**
  * Rastreia os arquivos JSON de origem e garante que todos os metadados de imagens
@@ -51,7 +16,7 @@ async function buildRegistryFromJsons(sourceDir, registryOutputFolder) {
     console.log(`\n--- RASTREAMENTO DE JSONS PARA REGISTRO DE IMAGENS ---`);
 
     // 1. Carrega o registro existente
-    let imageRegistry = await loadRegistry(registryOutputFolder);
+    let imageRegistry = await loadRegistry(registryOutputFolder, REGISTRY_FILENAME);
     const initialRegistrySize = imageRegistry.length;
 
     const parsedJsonData = await readAllJsons(sourceDir);
@@ -88,7 +53,7 @@ async function buildRegistryFromJsons(sourceDir, registryOutputFolder) {
     }
 
     if (newItemsAdded > 0) {
-        await saveRegistry(registryOutputFolder, imageRegistry);
+        await saveRegistry(registryOutputFolder, imageRegistry, REGISTRY_FILENAME);
         console.log(`Rastreamento de JSON concluído. Adicionadas ${newItemsAdded} novas entradas. Total: ${imageRegistry.length}`);
     } else {
         console.log("Nenhuma nova entrada adicionada ao registro.");
@@ -136,7 +101,7 @@ async function synchronizeDiskStatus(registryOutputFolder, imageDir, imageRegist
     const existingFilenames = new Set(
         outputEntries.filter(d => d.isFile()).map(d => d.name)
     );
-    console.log(`Arquivos de imagem encontrados no disco: ${existingFilenames.size}`);
+    console.log(`Arquivos encontrados no disco: ${existingFilenames.size}`);
     
     let updatesCount = 0;
     
@@ -150,7 +115,7 @@ async function synchronizeDiskStatus(registryOutputFolder, imageDir, imageRegist
     
     // 3. Salva o registro atualizado (se houver mudanças)
     if (updatesCount > 0) {
-        await saveRegistry(registryOutputFolder, imageRegistry);
+        await saveRegistry(registryOutputFolder, imageRegistry, REGISTRY_FILENAME);
         console.log(`Sincronização de status concluída. ${updatesCount} itens marcados como 'extracted: true'.`);
     } else {
         console.log("Nenhuma alteração de status necessária no disco.");
@@ -160,7 +125,5 @@ async function synchronizeDiskStatus(registryOutputFolder, imageDir, imageRegist
 }
 
 module.exports = {
-    loadRegistry,
-    saveRegistry,
     syncImageRegistry
 };
