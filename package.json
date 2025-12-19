@@ -11,7 +11,8 @@
     "start": "node index.js",
     "lore": "node index.js get-lore",
     "images": "node index.js get-img",
-    "sync-images": "node index.js sync-img"
+    "sync-images": "node index.js sync-img",
+    "sync-lore": "node index.js sync-lore"
   },
   "dependencies": {
     "axios": "^1.13.2",

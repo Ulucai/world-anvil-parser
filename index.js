@@ -4,6 +4,7 @@ const { loadConfig } = require('./src/config');
 const { getLoreData } = require('./src/lore-extractor');
 const { downloadImages } = require('./src/download-img');
 const { syncImageRegistry } = require('./src/utils/image-registry.js');
+const { syncLoreRegistry } = require('./src/utils/lore-registry.js');
 
 program
   .version('1.0.0')
@@ -14,7 +15,7 @@ async function runCommand(handler, sourcePath, outputKey, options) {
         const config = await loadConfig();
                         
         const finalOutput = path.join(config.outputFolder, outputKey);
-        let finalPath;
+        let finalPath = sourcePath;
         if(!sourcePath){
           switch (handler.name) {
             case "downloadImages":
@@ -24,8 +25,11 @@ async function runCommand(handler, sourcePath, outputKey, options) {
               finalPath = config.loreSourceFolder;
               break;
             case "syncImageRegistry":
-              finalPath = config.imageSourceFolder;
+                finalPath = config.imageSourceFolder;
               break;
+            case "syncLoreRegistry":
+                finalPath = config.loreSourceFolder;
+                break;
             default:
               throw "Source não foi definido";
           }
@@ -59,7 +63,7 @@ program
     runCommand(downloadImages, options.source, 'img', options.prop);
   });
 
-// Registra comando get-img no commander
+// Registra comando sync-img no commander
 program
   .command('sync-img')
   .description('Lê arquivos JSON com URLs atualiza o registry das imagens já baixadas.')
@@ -67,5 +71,15 @@ program
   .action((options) => {    
     runCommand(syncImageRegistry, options.source, '', './output/img');
   });
+
+program
+    .command('sync-lore')
+    .description('Lê arquivos JSON com URLs atualiza o registry das imagens já baixadas.')
+    .option('-s, --source <path>', 'A pasta contendo os arquivos JSON com os URLs das imagens.')
+    .option('-p, --registry <property>', 'O nome do arquivo JSON de destino para o registry.')
+    .action((options) => {
+        console.log(options);
+        runCommand(syncLoreRegistry, options.source, '',options.registry);
+    });
 
 program.parse(process.argv);
