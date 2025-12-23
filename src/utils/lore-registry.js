@@ -1,179 +1,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const {readAllJsons} = require('./json-utils')
-const {loadRegistry, saveRegistry} = require('./registry-utils')
-
-
-const loreRegistryTemplate = {
-    Article: ({id, title, entityClass, cover, url, category, content}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content
-        }),
-    Person: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-    Ethnicity: ({id, title, entityClass, cover, url, category, content}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content
-        }),
-    Category: ({id, title, slug, entityClass, url, articles}) => (
-        {
-            id,
-            title,
-            slug,
-            entityClass,
-            url,
-            articles: articles?.map(({id, title, entityClass}) => ({id, title, entityClass}))
-        }),
-    Formation: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-    Landmark: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-    Location: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-    Organization: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            category: ({id, title, entityClass}) => ({id, title, entityClass}),
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-    Profession: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-    Report: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-    Ritual: ({id, title, entityClass, cover, url, category, content}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content
-        }),
-    Settlement: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-    Species: ({id, title, entityClass, cover, url, category, content}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content
-        }),
-    Condition: ({id, title, entityClass, cover, url, category, content, sidepanelcontenttop}) => (
-        {
-            id,
-            title,
-            entityClass,
-            coverId: cover.id,
-            url,
-            categoryId: category ? category.id : null,
-            categoryTitle: category ? category.title : null,
-            content,
-            sidepanelcontenttop
-        }),
-};
-
-
-function castJson(json) {
-    const builder = loreRegistryTemplate[json.entityClass];
-    if (!builder) throw new Error(`Unknown entityClass: ${json.entityClass}`);
-    return builder(json);
-}
+const {castJson, loadRegistry, saveRegistry, buildRegistryTree, syncFileSystem} = require('./registry-utils')
 
 /**
  * Rastreia os arquivos JSON de origem e garante que todos os metadados
@@ -220,13 +48,19 @@ async function buildRegistryFromJsons(sourceDir, registryOutputFolder, registryF
             newItemsAdded++;
         }
     }
+    let flatRegistry;
+    if(baseRegistry.every(r=>r.entityClass==='Category')){
+        const {flatRegistry} = buildRegistryTree(baseRegistry);
+        syncFileSystem(flatRegistry);
+        baseRegistry = flatRegistry;
+    }
+
     if (newItemsAdded > 0) {
         await saveRegistry(registryOutputFolder, baseRegistry, registryFilename);
         console.log(`Rastreamento de JSON concluído. Adicionadas ${newItemsAdded} novas entradas. Total: ${baseRegistry.length}`);
     } else {
         console.log("Nenhuma nova entrada adicionada ao registro.");
     }
-
     return baseRegistry;
 }
 
