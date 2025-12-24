@@ -1,14 +1,8 @@
 const path = require('path');
 const { findById } = require('./registry-utils');
-// Regex para encontrar links internos no formato: @[Display Name](entityClass:ID)
-// Grupo 2: Display Name
-// Grupo 4: entityClass
-// Grupo 6: ID
 const WA_LINK_REGEX = /(@\[)(.*?)(]\()(.*?)(:)(.*?)(?:\))/g;
 const WA_IMG_REGEX = /\[img:(\d+)\]/g;
 const EXTERNAL_URL_REGEX = /\[url:(https?:\/\/[^\]]+)\](.*?)\[\/url\]/gs;
-// Regex para encontrar BBCode de tabela (usaremos para split e parsear)
-const WA_TABLE_REGEX = /\[table]([\s\S]*?)\[\/table]/g;
 
 /**
  * Converte links internos do World Anvil (BBCode) para links Markdown locais.
@@ -82,48 +76,54 @@ function replaceInternalLinksHtml(content, root, articleRefPath, loreRegistry, i
     });
 }
 
+function normalizeTableCell(text) {
+    return text
+        .replace(/\r?\n+/g, '<br>')
+        .replace(/\s*<br>\s*/g, '<br>')
+        .trim();
+}
 
 /**
  * Converte uma string de BBCode (principalmente para tabelas) em Markdown.
  * Esta é a função mais complexa.
- * @param {string} bbcodeTableContent O conteúdo da tabela (incluindo [tr], [th], [td]).
+ * @param {string} content O conteúdo da tabela (incluindo [tr], [th], [td]).
  * @returns {string} A tabela formatada em Markdown.
  */
-function parseBBCodeTable(bbcodeTableContent) {
-    // 1. Divide o conteúdo da tabela em linhas ([tr] tags)
-    const rows = bbcodeTableContent.split(/\[\/?tr\]/).filter(r => r.trim());
+function parseBBCodeTable(content) {
+    return content.replace(/\[table\]([\s\S]*?)\[\/table\]/gi, (_, tableBody) => {
+        const rows = [...tableBody.matchAll(/\[tr\]([\s\S]*?)\[\/tr\]/gi)];
 
-    if (rows.length === 0) return '';
+        if (!rows.length) return '';
 
-    let markdownTable = '';
-    let headerLine = '';
-    let alignmentLine = '';
-    
-    // Processa a primeira linha (assumida como cabeçalho)
-    const headerRowContent = rows[0];
-    const headers = headerRowContent.split(/\[\/?th\]/).filter(c => c.trim());
+        const parsedRows = rows.map(row => {
+            const cells = [...row[1].matchAll(/\[(td|th)\]([\s\S]*?)\[\/\1\]/gi)];
+            return cells.map(c => normalizeTableCell(c[2]));
+        });
 
-    if (headers.length > 0) {
-        // 2. Cria a linha de cabeçalho (| H1 | H2 |)
-        headerLine = `| ${headers.map(h => h.trim()).join(' | ')} |\n`;
+        if (!parsedRows.length) return '';
 
-        // 3. Cria a linha de alinhamento (|---|---|)
-        alignmentLine = `| ${headers.map(() => '---').join(' | ')} |\n`;
-        
-        markdownTable += headerLine + alignmentLine;
-    }
-    
-    // 4. Processa as linhas de dados restantes ([td] tags)
-    const dataRows = rows.slice(1);
-    
-    for (const rowContent of dataRows) {
-        const cells = rowContent.split(/\[\/?td\]/).filter(c => c.trim());
-        if (cells.length > 0) {
-            markdownTable += `| ${cells.map(c => c.trim()).join(' | ')} |\n`;
+        const hasHeader = /\[th\]/i.test(rows[0][1]);
+
+        let md = '';
+
+        // Header
+        if (hasHeader) {
+            md += `| ${parsedRows[0].join(' | ')} |\n`;
+            md += `| ${parsedRows[0].map(() => '---').join(' | ')} |\n`;
+            parsedRows.slice(1).forEach(r => {
+                md += `| ${r.join(' | ')} |\n`;
+            });
+        } else {
+            // No header: create empty header
+            md += `| ${parsedRows[0].map(() => ' ').join(' | ')} |\n`;
+            md += `| ${parsedRows[0].map(() => '---').join(' | ')} |\n`;
+            parsedRows.forEach(r => {
+                md += `| ${r.join(' | ')} |\n`;
+            });
         }
-    }
 
-    return markdownTable;
+        return `\n${md}\n`;
+    });
 }
 
 /**
@@ -142,10 +142,7 @@ function transformContentToMarkdown(article, root, loreRegistry, imageRegistry) 
     }
     const articleReferencePath = article.referencePath
 
-    // A. 1. Processa as tabelas primeiro (substituindo o bloco [table] inteiro)
-    markdown = markdown.replace(WA_TABLE_REGEX, (match) => {
-        return parseBBCodeTable(match);
-    });
+    markdown = parseBBCodeTable(markdown)
     
     // B. 2. Substitui links internos
     markdown = replaceInternalLinks(markdown, root, articleReferencePath, loreRegistry, imageRegistry);
@@ -174,9 +171,14 @@ function transformContentToMarkdown(article, root, loreRegistry, imageRegistry) 
         .replace(/\[br\]/g, '<br>')
         .replace(/\[hr\]/g, '\n---\n')
         .replace(/\[i\](.*?)\[\/i\]/gs, '*$1*')
+        .replace(/\[sub\](.*?)\[\/sub\]/gs, '*$1*')
         .replace(EXTERNAL_URL_REGEX, '[$2]($1)')
         .replace(/\[spoiler\]/g, '')
-        .replace(/\[\/spoiler\]/g, '');
+        .replace(/\[\/spoiler\]/g, '')
+        .replace(/\[justify\]/g, '')
+        .replace(/\[\/justify\]/g, '')
+        .replace(/\[center\]/g, '')
+        .replace(/\[\/center\]/g, '');
 
     markdown = transformQuotes(markdown);
 
@@ -318,8 +320,6 @@ function transformQuotes(markdown) {
 
 module.exports = {
     transformContentToMarkdown,
-    replaceInternalLinks, // Exportar para testes se necessário
-    parseBBCodeTable, // Exportar para testes se necessário
     parseMetadataToFrontmatter,
     transformContentToHtml
 };
