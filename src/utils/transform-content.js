@@ -6,7 +6,7 @@ const { findById } = require('./registry-utils');
 // Grupo 6: ID
 const WA_LINK_REGEX = /(@\[)(.*?)(]\()(.*?)(:)(.*?)(?:\))/g;
 const WA_IMG_REGEX = /\[img:(\d+)\]/g;
-
+const EXTERNAL_URL_REGEX = /\[url:(https?:\/\/[^\]]+)\](.*?)\[\/url\]/gs;
 // Regex para encontrar BBCode de tabela (usaremos para split e parsear)
 const WA_TABLE_REGEX = /\[table]([\s\S]*?)\[\/table]/g;
 
@@ -68,7 +68,7 @@ function replaceInternalLinksHtml(content, root, articleRefPath, loreRegistry, i
             const articlePath = path.posix.join(root, articleRefPath);
             const finalPath = path.posix.relative(articlePath, citedArticlePath);
 
-            return `<a href="${finalPath}">${displayName}</a>`;
+            return `<a href="../${finalPath}">${displayName}</a>`;
         }
     );
     return content.replace(WA_IMG_REGEX, (match, id) => {
@@ -78,7 +78,7 @@ function replaceInternalLinksHtml(content, root, articleRefPath, loreRegistry, i
         const finalPath = path.posix.relative(articlePath, imagePath);
 
         // Retorna o link Markdown: [Display Name](caminho/relativo)
-        return `<img src="${finalPath}" alt="">`;
+        return `<img src='../${finalPath}' style='max-width: 100%' alt=''>`;
     });
 }
 
@@ -164,14 +164,21 @@ function transformContentToMarkdown(article, root, loreRegistry, imageRegistry) 
         .replace(/\[\/h5\]/g, '')
         .replace(/\[h6\]/g, '###### ')
         .replace(/\[\/h6\]/g, '')
-        .replace(/\[b\]/g, '**')
-        .replace(/\[\/b\]/g, '**')
+        // .replace(/\[b\]/g, '**')
+        // .replace(/\[\/b\]/g, '**')
+        .replace(/\[b\]\s*(.*?)\s*\[\/b\]/gs, '**$1**')
         .replace(/\[ul\]/g, '')
         .replace(/\[\/ul\]/g, '')
         .replace(/\[li\]/g, '* ')
         .replace(/\[\/li\]/g, '')
         .replace(/\[br\]/g, '<br>')
-        .replace(/\[hr\]/g, '\n---\n');
+        .replace(/\[hr\]/g, '\n---\n')
+        .replace(/\[i\](.*?)\[\/i\]/gs, '*$1*')
+        .replace(EXTERNAL_URL_REGEX, '[$2]($1)')
+        .replace(/\[spoiler\]/g, '')
+        .replace(/\[\/spoiler\]/g, '');
+
+    markdown = transformQuotes(markdown);
 
     // D. 4. Limpa quebras de linha/retorno de carro desnecessárias
     markdown = markdown.replace(/\r\n/g, '\n'); 
@@ -208,13 +215,23 @@ function parseMetadataToFrontmatter(metadata) {
 
             // Tratamento: Coloca o valor entre aspas duplas, seguindo a convenção YAML para strings.
             // Ex: title: "My Title"
-            frontmatter += `${key}: "${value}"\n`;
+            if(key==='sidebar_custom')
+                frontmatter += `${key}: |\n${toYamlBlock(value)}\n`;
+            else
+                frontmatter += `${key}: "${value}"\n`;
         }
     }
 
     frontmatter += '---\n\n';
 
     return frontmatter;
+}
+
+function toYamlBlock(value) {
+    return value
+        .split('\n')
+        .map(line => `  ${line}`)
+        .join('\n');
 }
 
 /**
@@ -252,6 +269,14 @@ function transformContentToHtml(article, root, loreRegistry, imageRegistry) {
         /\[center\](.*?)\[\/center\]/gs,
         '<div style="text-align:center;">$1</div>'
     );
+    html = html.replace(
+        /\[left\](.*?)\[\/left\]/gs,
+        '<div style="text-align:left;">$1</div>'
+    );
+    html = html.replace(
+        /\[right\](.*?)\[\/right\]/gs,
+        '<div style="text-align:right;">$1</div>'
+    );
 
     // Bold
     html = html.replace(/\[b\](.*?)\[\/b\]/gs, '<strong>$1</strong>');
@@ -266,11 +291,30 @@ function transformContentToHtml(article, root, loreRegistry, imageRegistry) {
         .replace(/\[li\]/g, '<li>')
         .replace(/\[\/li\]/g, '</li>');
 
+    html = html
+        .replace(/\[i\]/g, '<i>')
+        .replace(/\[\/i\]/g, '</i>');
     // Line breaks
     html = html.replace(/\n{2,}/g, '<br><br>');
 
     return html.trim();
 }
+
+function transformQuotes(markdown) {
+    return markdown.replace(
+        /\[quote\]([\s\S]*?)\[\/quote\]/g,
+        (_, content) => {
+            const indented = content
+                .trim()
+                .split('\n')
+                .map(line => `    ${line}`)
+                .join('\n');
+
+            return `!!! info ""\n${indented}`;
+        }
+    );
+}
+
 
 module.exports = {
     transformContentToMarkdown,
