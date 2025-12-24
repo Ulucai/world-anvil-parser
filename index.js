@@ -1,7 +1,7 @@
 const { program } = require('commander');
 const path = require('path');
 const { loadConfig } = require('./src/config'); 
-const { getLoreData } = require('./src/lore-extractor');
+const { processLoreFiles } = require('./src/process-lore');
 const { downloadImages } = require('./src/download-img');
 const { syncImageRegistry } = require('./src/utils/image-registry.js');
 const { syncLoreRegistry } = require('./src/utils/lore-registry.js');
@@ -21,8 +21,8 @@ async function runCommand(handler, sourcePath, outputKey, options) {
             case "downloadImages":
               finalPath = config.imageSourceFolder;
               break;
-            case "getLoreData":
-              finalPath = config.loreSourceFolder;
+            case "processLoreFiles":
+                finalPath = config.outputFolder;
               break;
             case "syncImageRegistry":
                 finalPath = config.imageSourceFolder;
@@ -35,7 +35,10 @@ async function runCommand(handler, sourcePath, outputKey, options) {
           }
         }
         // passa dados para função do comando
-        await handler(finalPath, finalOutput, options);
+        if(handler.name==='processLoreFiles')
+            await handler(finalPath);
+        else
+            await handler(finalPath, finalOutput, options);
         
     } catch (error) {
         console.error("Falha no comando:", error.message);
@@ -48,9 +51,9 @@ async function runCommand(handler, sourcePath, outputKey, options) {
 program
   .command('get-lore')
   .description('Lê arquivos JSON e converte seu conteúdo em arquivos Markdown.')
-  .option('-s, --source <path>', 'A pasta contendo os arquivos JSON.', false)
+  .option('-s, --source <path>', 'A pasta contendo os arquivos registry (normalmente ./output).', false)
   .action((options) => {        
-    runCommand(getLoreData, options.source, 'lore', options);
+    runCommand(processLoreFiles, options.source, '', options);
   });
 
 // Registra comando get-img no commander

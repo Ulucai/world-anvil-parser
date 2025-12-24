@@ -77,7 +77,7 @@ async function syncLoreRegistry(sourceDir, registryOutputFolder, registryFilenam
     const updatedRegistry = await buildRegistryFromJsons(sourceDir, registryOutputFolder, registryFilename);
     // 2. SINCRONIZAÇÃO DE STATUS: Verifica o disco e atualiza o status 'extracted: true'
     //await synchronizeDiskStatus(registryOutputFolder, loreRootDir, updatedRegistry);
-
+    return updatedRegistry;
     //console.log(`\nSincronização completa de registro e disco concluída.`);
 }
 

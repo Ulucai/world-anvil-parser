@@ -247,7 +247,7 @@ async function loadRegistry(outputFolder, registryFilename) {
  */
 async function saveRegistry(outputFolder, registry, registryFilename) {
     console.log(`Salvando ${registryFilename}`);
-    const registryPath = path.join(outputFolder, registryFilename);
+    const registryPath = path.posix.join(outputFolder, registryFilename);
     try {
         await fs.writeFile(registryPath, JSON.stringify(registry, null, 2), 'utf8');
         console.log(`${registryFilename} salvo em: ${registryPath}`);
@@ -257,10 +257,15 @@ async function saveRegistry(outputFolder, registry, registryFilename) {
     }
 }
 
+function findById(registry, id){
+    return registry.find(item => String(item.id) === String(id));
+}
+
 module.exports = {
     loadRegistry,
     saveRegistry,
     castJson,
     buildRegistryTree,
     syncFileSystem,
+    findById
 }
