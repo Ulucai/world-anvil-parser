@@ -183,7 +183,8 @@ function transformContentToMarkdown(article, root, loreRegistry, imageRegistry) 
     markdown = transformQuotes(markdown);
 
     // D. 4. Limpa quebras de linha/retorno de carro desnecessárias
-    markdown = markdown.replace(/\r\n/g, '\n'); 
+    markdown = markdown.replace(/\r\n/g, '\n');
+    markdown = markdown.replace(/\t/g, '');
 
     return markdown;
 }
@@ -298,6 +299,7 @@ function transformContentToHtml(article, root, loreRegistry, imageRegistry) {
         .replace(/\[\/i\]/g, '</i>');
     // Line breaks
     html = html.replace(/\n{2,}/g, '<br><br>');
+    html = html.replace(/\[br\]/g, '<br>');
 
     return html.trim();
 }

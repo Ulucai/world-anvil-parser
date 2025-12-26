@@ -67,6 +67,9 @@ async function processLoreFiles(root, loreRegistryName = LORE_REGISTRY, category
     if (!imageRegistry.length) {
         throw new Error(`Image Registry não encontrado: ${imageRegistryName}, utilize o comando sync-lore`);
     }
+    categoryRegistry
+        //.filter(c => (c.articles && c.articles.length > 0)
+        .forEach(c => generateIndexMarkdown(root, c));
 
     const idLookup = new Set (categoryRegistry.flatMap(c => (c.articles ?? []).map(a=> a.id)));
     const filteredArticles = loreRegistry.filter(article => idLookup.has(article.id));
@@ -132,6 +135,47 @@ async function generateMarkdown(root, article, loreRegistry, imageRegistry) {
     } catch (error) {
         console.error(`  - ERRO: Falha ao escrever o arquivo ${outputFilePath}: ${error.message}`);
         return {status: `ERROR:Write Failed (${error.message})`, slug: article.slug ?? 'N/A'};
+    }
+}
+
+async function generateIndexMarkdown(root, category){
+    if(!category || !category.title){
+        console.error(`  - ERRO: Categoria inválida.`);
+        return {status: `ERROR: Categoria inválida`, slug: category.slug ?? 'N/A'};
+    }
+    const indexPath = path.posix.join(root, category.referencePath, 'index.md');
+    const outputFolder = path.posix.join(root, category.referencePath);
+    let markdown = `---\n title: "${category.title}"\n---\n`
+    let indexEntires = 0;
+
+    for (const child of category.children) {
+        if (!child || !child.id || !child.title || !child.slug || !child.entityClass || child.entityClass !== 'Category') continue;
+        const childPath = path.posix.join(root, category.referencePath, `${child.slug.replace('-category','')}/`);
+        const childRelativePath = path.posix.relative(outputFolder, childPath);
+        markdown += `### [${child.title}](${childRelativePath})\n`;
+        indexEntires++;
+    }
+
+    for (const article of (category.articles??[])) {
+        if (!article || !article.id || !article.title) continue;
+        const articlePath = path.posix.join(root, category.referencePath, `${article.id}.md`);
+        const articleRelativePath = path.posix.relative(outputFolder, articlePath);
+        markdown += `### [${article.title}](${articleRelativePath})\n`;
+        indexEntires++;
+    }
+    if (indexEntires === 0) return {status: `ERROR:Empty category, nothing was created `, slug: category.slug ?? 'N/A'};;
+    try {
+        await fs.mkdir(outputFolder, {recursive: true});
+        await fs.writeFile(indexPath, markdown, 'utf8');
+
+        console.log(`  - SUCESSO: Índice de '${category.title}' salvo em: ${indexPath}`);
+
+        // Retorna status de sucesso (sem código HTTP)
+        return {status: 'SUCCESS', slug: category.slug ?? 'N/A'};
+
+    } catch (error) {
+        console.error(`  - ERRO: Falha ao escrever o arquivo ${indexPath}: ${error.message}`);
+        return {status: `ERROR:Write Failed (${error.message})`, slug: category.slug ?? 'N/A'};
     }
 }
 
